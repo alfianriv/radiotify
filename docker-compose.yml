@@ -1,0 +1,28 @@
+services:
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    volumes:
+      - redis_data:/data
+
+  backend:
+    build: .
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      - REDIS_URL=redis://redis:6379/0
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD:-admin123}
+      - JWT_SECRET=${JWT_SECRET:-change-me-in-production}
+    volumes:
+      - audio_cache:/app/backend/audio_cache
+      - hls_streams:/app/backend/hls_streams
+      - db_data:/app/backend/radiotify.db
+    depends_on:
+      - redis
+
+volumes:
+  redis_data:
+  audio_cache:
+  hls_streams:
+  db_data:
