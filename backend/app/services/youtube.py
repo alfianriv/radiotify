@@ -23,7 +23,8 @@ class YouTubeMusicService:
         if os.path.isfile(cookies_src):
             import shutil
             cookies_file = '/tmp/yt_cookies.txt'
-            shutil.copy2(cookies_src, cookies_file)
+            if not os.path.isfile(cookies_file):
+                shutil.copy2(cookies_src, cookies_file)
         self._ydl_opts = {
             'quiet': True,
             'no_warnings': True,

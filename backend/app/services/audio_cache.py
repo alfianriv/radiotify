@@ -2,12 +2,24 @@
 import asyncio
 import mimetypes
 import os
+import shutil
 from pathlib import Path
 from typing import Optional, Tuple
 
 import yt_dlp
 
 from ..config import config
+
+
+def _get_cookies_file() -> Optional[str]:
+    """Return a writable copy of the cookies file, or None if not available."""
+    src = config.COOKIES_FILE
+    if not os.path.isfile(src):
+        return None
+    dst = '/tmp/yt_cookies.txt'
+    if not os.path.isfile(dst):
+        shutil.copy2(src, dst)
+    return dst
 
 
 class AudioCache:
@@ -57,12 +69,14 @@ class AudioCache:
 
     def _download(self, video_id: str):
         output = str(self.cache_dir / f"{video_id}.%(ext)s")
+        cookies_file = _get_cookies_file()
         opts = {
             "format": "bestaudio[ext=m4a]/bestaudio/best",
             "outtmpl": output,
             "quiet": True,
             "no_warnings": True,
             "noplaylist": True,
+            **(({"cookiefile": cookies_file}) if cookies_file else {}),
         }
         with yt_dlp.YoutubeDL(opts) as ydl:
             ydl.download([f"https://www.youtube.com/watch?v={video_id}"])
