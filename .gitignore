@@ -19,6 +19,9 @@ venv/
 env/
 .env/
 
+# ── Cookies ──────────────────────────────────────────────
+backend/cookies.txt
+
 # ── Environment / Secrets ─────────────────────────────────
 .env
 .env.local

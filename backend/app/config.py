@@ -22,6 +22,10 @@ class Config:
         'AUDIO_CACHE_DIR',
         os.path.join(os.path.dirname(__file__), '..', 'audio_cache'),
     )
+    COOKIES_FILE: str = os.getenv(
+        'COOKIES_FILE',
+        os.path.join(os.path.dirname(__file__), '..', 'cookies.txt'),
+    )
 
 
 config = Config()

@@ -19,6 +19,7 @@ services:
       - audio_cache:/app/backend/audio_cache
       - hls_streams:/app/backend/hls_streams
       - db_data:/app/backend/data
+      - ./backend/cookies.txt:/app/backend/cookies.txt:ro
     depends_on:
       - redis
 

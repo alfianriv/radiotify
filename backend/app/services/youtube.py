@@ -1,5 +1,6 @@
 """YouTube Music service using ytmusicapi + yt-dlp."""
 import logging
+import os
 import random
 from typing import Optional, List, Dict, Any
 
@@ -7,6 +8,7 @@ from ytmusicapi import YTMusic
 from yt_dlp import YoutubeDL
 
 from .db import Database
+from ..config import config
 
 logger = logging.getLogger(__name__)
 
@@ -15,10 +17,12 @@ class YouTubeMusicService:
     def __init__(self, db: Database):
         self.db = db
         self.ytmusic = YTMusic()
+        cookies_file = config.COOKIES_FILE if os.path.isfile(config.COOKIES_FILE) else None
         self._ydl_opts = {
             'quiet': True,
             'no_warnings': True,
             'extract_flat': False,
+            **(({'cookiefile': cookies_file}) if cookies_file else {}),
         }
 
     # ── Search ──────────────────────────────────────────────
