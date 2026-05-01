@@ -14,10 +14,11 @@ services:
       - REDIS_URL=redis://redis:6379/0
       - ADMIN_PASSWORD=${ADMIN_PASSWORD:-admin123}
       - JWT_SECRET=${JWT_SECRET:-change-me-in-production}
+      - DB_PATH=/app/backend/data/radiotify.db
     volumes:
       - audio_cache:/app/backend/audio_cache
       - hls_streams:/app/backend/hls_streams
-      - db_data:/app/backend/radiotify.db
+      - db_data:/app/backend/data
     depends_on:
       - redis
 
