@@ -17,12 +17,17 @@ class YouTubeMusicService:
     def __init__(self, db: Database):
         self.db = db
         self.ytmusic = YTMusic()
-        cookies_file = config.COOKIES_FILE if os.path.isfile(config.COOKIES_FILE) else None
+        cookies_src = config.COOKIES_FILE
+        # yt-dlp needs a writable cookies file; copy to /tmp if source is read-only
+        cookies_file = None
+        if os.path.isfile(cookies_src):
+            import shutil
+            cookies_file = '/tmp/yt_cookies.txt'
+            shutil.copy2(cookies_src, cookies_file)
         self._ydl_opts = {
             'quiet': True,
             'no_warnings': True,
             'extract_flat': False,
-            'no_update_cookies': True,
             **(({'cookiefile': cookies_file}) if cookies_file else {}),
         }
 
