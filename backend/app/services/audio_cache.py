@@ -17,8 +17,8 @@ def _get_cookies_file() -> Optional[str]:
     if not os.path.isfile(src):
         return None
     dst = '/tmp/yt_cookies.txt'
-    if not os.path.isfile(dst):
-        shutil.copy2(src, dst)
+    # Always sync from source so updates take effect on restart
+    shutil.copy2(src, dst)
     return dst
 
 
