@@ -1,9 +1,11 @@
 FROM python:3.12-slim
 
-# Install system dependencies
+# Install system dependencies including Node.js for yt-dlp JS challenge solver
 RUN apt-get update && apt-get install -y \
     ffmpeg \
     curl \
+    nodejs \
+    npm \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app

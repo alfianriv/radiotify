@@ -76,6 +76,7 @@ class AudioCache:
             "quiet": True,
             "no_warnings": True,
             "noplaylist": True,
+            "extractor_args": {"youtube": {"player_client": ["web_music"]}},
             **(({"cookiefile": cookies_file}) if cookies_file else {}),
         }
         with yt_dlp.YoutubeDL(opts) as ydl:
