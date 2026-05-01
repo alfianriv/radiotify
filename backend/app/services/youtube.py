@@ -137,8 +137,13 @@ class YouTubeMusicService:
         songs = []
         try:
             # Try trending songs first
-            charts = self.ytmusic.get_charts()
-            songs = charts.get('songs', {}).get('items', [])
+            try:
+                charts = self.ytmusic.get_charts()
+                songs = charts.get('songs', {}).get('items', [])
+            except (StopIteration, Exception) as charts_err:
+                logger.warning(f"get_charts failed ({type(charts_err).__name__}), falling back to search")
+                songs = []
+
             if not songs:
                 # Fallback: search popular music
                 results = self.ytmusic.search('popular music 2025', filter='songs', limit=20)
@@ -178,8 +183,11 @@ class YouTubeMusicService:
                 break
             # Coba fetch trending lagi
             try:
-                charts = self.ytmusic.get_charts()
-                songs = charts.get('songs', {}).get('items', [])
+                try:
+                    charts = self.ytmusic.get_charts()
+                    songs = charts.get('songs', {}).get('items', [])
+                except (StopIteration, Exception):
+                    songs = self.ytmusic.search('popular music 2025', filter='songs', limit=20)
                 candidates = [
                     s for s in songs
                     if s.get('videoId')
