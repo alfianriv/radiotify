@@ -668,8 +668,19 @@ function renderSearchResults(results) {
 }
 
 elSearchInput.addEventListener('input', (e) => {
+  const query = e.target.value.trim();
   clearTimeout(searchTimeout);
-  searchTimeout = setTimeout(() => doSearch(e.target.value.trim()), 300);
+  // Clear results immediately if query too short
+  if (query.length < 3) {
+    elSearchResults.innerHTML = '';
+    return;
+  }
+  // Show skeleton while waiting
+  elSearchResults.innerHTML = `
+    <div class="search-skeleton">
+      ${Array(4).fill('<div class="skeleton-item"><div class="skeleton-thumb"></div><div class="skeleton-lines"><div class="skeleton-line skeleton-line--title"></div><div class="skeleton-line skeleton-line--sub"></div></div></div>').join('')}
+    </div>`;
+  searchTimeout = setTimeout(() => doSearch(query), 3000);
 });
 
 // ── History ────────────────────────────────────────────────
@@ -907,25 +918,7 @@ $('btn-skip').addEventListener('click', async () => {
   await adminFetch(`${API_BASE}/admin/skip`, { method: 'POST' });
 });
 
-$('btn-force-play').addEventListener('click', () => $('force-play-modal').classList.add('active'));
-$('force-play-close').addEventListener('click', () => $('force-play-modal').classList.remove('active'));
-$('btn-force-play-go').addEventListener('click', async () => {
-  let val = $('force-play-input').value.trim();
-  // Extract video ID from URL if needed
-  const match = val.match(/(?:v=|youtu\.be\/)([a-zA-Z0-9_-]{11})/);
-  if (match) val = match[1];
-  if (!val) return;
-  await adminFetch(`${API_BASE}/admin/force-play`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ video_id: val }),
-  });
-  $('force-play-modal').classList.remove('active');
-  $('force-play-input').value = '';
-});
-$('force-play-input').addEventListener('keydown', (e) => {
-  if (e.key === 'Enter') $('btn-force-play-go').click();
-});
+
 
 $('btn-clear-queue').addEventListener('click', async () => {
   if (!confirm('Clear entire queue?')) return;

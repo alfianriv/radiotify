@@ -487,12 +487,16 @@ class RadioEngine:
             })
 
     async def admin_skip(self):
-        """Skip current track."""
-        self.redis.set_admin_skip()
+        """Skip current track immediately."""
+        logger.info("Admin skip — transitioning immediately")
+        self.redis.clear_admin_skip()  # clear flag so _tick() doesn't double-transition
+        await self._transition(skip_history=True)
 
     async def admin_force_play(self, video_id: str):
-        """Force play a specific track."""
-        self.redis.set_admin_force_play(video_id)
+        """Force play a specific track immediately."""
+        logger.info(f"Admin force play — playing {video_id} immediately")
+        self.redis.clear_admin_force_play()
+        await self._play_track(video_id, source='admin')
 
     async def admin_clear_queue(self):
         """Clear the queue."""

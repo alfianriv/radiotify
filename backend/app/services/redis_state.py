@@ -129,6 +129,9 @@ class RedisState:
     def set_admin_skip(self) -> None:
         self.redis.set('radio:admin_skip', '1')
 
+    def clear_admin_skip(self) -> None:
+        self.redis.delete('radio:admin_skip')
+
     # ── User Queue Rate Limit ───────────────────────────────
 
     def check_user_queue_limit(self, user_id: str) -> bool:
