@@ -22,6 +22,7 @@ class YouTubeMusicService:
             'quiet': True,
             'no_warnings': True,
             'extract_flat': False,
+            'no_update_cookies': True,
             **(({'cookiefile': cookies_file}) if cookies_file else {}),
         }
 
