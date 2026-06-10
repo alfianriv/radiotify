@@ -1,7 +1,9 @@
 """Radio state API endpoints."""
 import time
 import logging
+import json
 from fastapi import APIRouter, Depends, Request
+from fastapi.responses import JSONResponse
 
 from ..models import RadioStateResponse, VoteSkipResponse
 from ..services.redis_state import RedisState
@@ -29,6 +31,11 @@ def get_engine():
 def get_audio_cache():
     from ..main import app_state
     return app_state.get('audio_cache')
+
+
+def get_youtube():
+    from ..main import app_state
+    return app_state.get('youtube')
 
 
 @router.get("/state", response_model=RadioStateResponse)
@@ -75,6 +82,46 @@ async def get_radio_state():
         maintenance=maintenance,
         maintenance_message=maintenance_message,
     )
+
+
+@router.get("/lyrics/{video_id}")
+async def get_lyrics(video_id: str):
+    """Get synchronized lyrics for a track.
+    
+    Returns: {lyrics: [{time_ms: int, text: str}, ...]} or {lyrics: null}
+    """
+    redis: RedisState = get_redis()
+    youtube = get_youtube()
+
+    if not youtube:
+        return JSONResponse(
+            status_code=503,
+            content={"error": "YouTube service not available", "lyrics": None}
+        )
+
+    # Check Redis cache first
+    cache_key = f"lyrics:{video_id}"
+    try:
+        cached = redis.get(cache_key)
+        if cached:
+            return {"lyrics": json.loads(cached)}
+    except Exception:
+        pass
+
+    # Fetch from YouTube Music
+    try:
+        lyrics = youtube.get_lyrics(video_id)
+        if lyrics:
+            # Cache for 1 hour
+            redis.setex(cache_key, 3600, json.dumps(lyrics))
+            return {"lyrics": lyrics}
+        else:
+            # Cache empty result for 5 minutes to avoid repeated failed lookups
+            redis.setex(cache_key, 300, json.dumps(None))
+            return {"lyrics": None}
+    except Exception as e:
+        logger.error(f"Lyrics fetch error for {video_id}: {e}")
+        return {"lyrics": None}
 
 
 @router.post("/vote-skip", response_model=VoteSkipResponse)

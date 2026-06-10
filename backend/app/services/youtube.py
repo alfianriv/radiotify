@@ -102,6 +102,47 @@ class YouTubeMusicService:
             logger.error(f"get_track_info error for {video_id}: {e}")
             return cached  # Return stale cache if available
 
+    # ── Lyrics ──────────────────────────────────────────────
+
+    def get_lyrics(self, video_id: str) -> Optional[List[Dict[str, Any]]]:
+        """Get synchronized lyrics for a track via ytmusicapi.
+        
+        Returns list of {time_ms, text} or None if not available.
+        """
+        try:
+            lyrics_data = self.ytmusic.get_lyrics(video_id)
+            if not lyrics_data:
+                logger.info(f"No lyrics found for {video_id}")
+                return None
+
+            # Check if we have synced lyrics
+            lyrics_lines = lyrics_data.get('lyrics')
+            if not lyrics_lines:
+                logger.info(f"No lyrics lines for {video_id}")
+                return None
+
+            # Parse synced lyrics if available
+            synced = []
+            for line in lyrics_lines:
+                start_ms = line.get('startMs')
+                text = line.get('text', '').strip()
+                if start_ms is not None and text:
+                    synced.append({
+                        'time_ms': int(start_ms),
+                        'text': text,
+                    })
+
+            if synced:
+                logger.info(f"Found {len(synced)} synced lyrics lines for {video_id}")
+                return synced
+
+            logger.info(f"No synced lyrics available for {video_id}")
+            return None
+
+        except Exception as e:
+            logger.error(f"get_lyrics error for {video_id}: {e}")
+            return None
+
     # ── Recommendations (Up Next) ───────────────────────────
 
     def get_up_next(self, video_id: str, limit: int = 10) -> List[str]:
