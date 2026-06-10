@@ -192,6 +192,35 @@ class RadioEngine:
         except Exception:
             pass
 
+        # Auto-pause when no listeners — save resources
+        try:
+            from .main import ws_connections
+            if len(ws_connections) == 0:
+                state = self.redis.get_radio_state()
+                if state and state.get('current_track_id') and not state.get('paused_for_no_listeners'):
+                    now_ms = time.time() * 1000
+                    started_at = state.get('started_at_ms', now_ms)
+                    state['paused_elapsed_ms'] = now_ms - started_at
+                    state['paused_at_ms'] = now_ms
+                    state['paused_for_no_listeners'] = True
+                    self.redis.set_radio_state(state)
+                    logger.info("⏸ No listeners — pausing playback")
+                return
+        except Exception:
+            pass
+
+        # Resume if was paused for no listeners and now has listeners
+        state = self.redis.get_radio_state()
+        if state and state.get('paused_for_no_listeners'):
+            try:
+                from .main import ws_connections
+                if len(ws_connections) > 0:
+                    logger.info("▶ Listener connected — resuming playback")
+                    await self.resume_after_no_listeners()
+                    return
+            except Exception:
+                pass
+
         state = self.redis.get_radio_state()
         if not state:
             await self._cold_start()
@@ -473,6 +502,48 @@ class RadioEngine:
         transition_at = state.get('transition_at_ms', 0)
         if now_ms >= transition_at:
             logger.info("Track expired during maintenance — transitioning...")
+            await self._transition()
+        else:
+            current_id = state.get('current_track_id')
+            if current_id:
+                self._notify_hls_worker(current_id)
+            await broadcast_event('TRACK_CHANGED', {
+                'track_id': state['current_track_id'],
+                'meta': state.get('current_track_meta', {}),
+                'started_at_ms': state['started_at_ms'],
+                'transition_at_ms': state['transition_at_ms'],
+                'server_time_ms': now_ms,
+            })
+
+    async def resume_after_no_listeners(self):
+        """Called when first listener connects after all listeners left.
+        Restores playback from the exact position it was paused at.
+        """
+        logger.info("▶ Resuming after no listeners...")
+        from .main import broadcast_event
+        state = self.redis.get_radio_state()
+        if not state:
+            await self._cold_start()
+            return
+
+        now_ms = time.time() * 1000
+        paused_elapsed_ms = state.get('paused_elapsed_ms')
+        paused_at_ms = state.get('paused_at_ms')
+
+        if paused_elapsed_ms is not None:
+            state['started_at_ms'] = now_ms - paused_elapsed_ms
+            if paused_at_ms:
+                pause_duration_ms = now_ms - paused_at_ms
+                state['transition_at_ms'] = state['transition_at_ms'] + pause_duration_ms
+            state.pop('paused_elapsed_ms', None)
+            state.pop('paused_at_ms', None)
+            state.pop('paused_for_no_listeners', None)
+            self.redis.set_radio_state(state)
+            logger.info("Resume: restored elapsed=%.1fs", paused_elapsed_ms / 1000)
+
+        transition_at = state.get('transition_at_ms', 0)
+        if now_ms >= transition_at:
+            logger.info("Track expired while no listeners — transitioning...")
             await self._transition()
         else:
             current_id = state.get('current_track_id')
