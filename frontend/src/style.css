@@ -787,21 +787,55 @@ body {
   color: var(--color-neutral);
 }
 
-/* ── Reactions ───────────────────────────────────────────── */
-.reaction-bar {
-  display: flex; gap: 6px; margin-top: 18px;
-  justify-content: center; flex-wrap: wrap;
+/* ── Reactions — floating speed dial ─────────────────────── */
+.reaction-fab {
+  position: fixed; bottom: 20px; right: 16px;
+  display: flex; flex-direction: column; align-items: center; gap: 10px;
+  z-index: 95;
 }
+.reaction-fab-main {
+  width: 52px; height: 52px;
+  border-radius: var(--radius-circle);
+  background: var(--color-paper-3); border: none;
+  font-size: 22px; line-height: 1;
+  cursor: pointer;
+  box-shadow: var(--shadow-heavy);
+  transition: background var(--dur-micro), transform var(--dur-short) var(--ease-out);
+}
+.reaction-fab-main:hover { background: var(--color-hover); transform: scale(1.04); }
+.reaction-fab-main:active { transform: scale(0.94); }
+.reaction-fab.open .reaction-fab-main { background: var(--color-hover); }
+
+.reaction-options {
+  display: flex; flex-direction: column; gap: 8px;
+  pointer-events: none;
+}
+.reaction-fab.open .reaction-options { pointer-events: auto; }
+
 .reaction-btn {
-  width: 40px; height: 40px;
+  width: 44px; height: 44px;
   border-radius: var(--radius-circle);
   background: var(--color-paper-3); border: none;
   font-size: var(--text-md); line-height: 1;
   cursor: pointer;
-  transition: background var(--dur-micro), transform var(--dur-micro);
+  box-shadow: var(--shadow-medium);
+  opacity: 0; transform: translateY(12px) scale(0.6);
+  transition: opacity var(--dur-short) var(--ease-out),
+              transform var(--dur-short) var(--ease-out),
+              background var(--dur-micro);
 }
-.reaction-btn:hover { background: var(--color-hover); transform: scale(1.08); }
-.reaction-btn:active { transform: scale(0.92); }
+.reaction-fab.open .reaction-btn { opacity: 1; transform: translateY(0) scale(1); }
+.reaction-fab.open .reaction-btn:nth-last-child(1) { transition-delay: 0ms; }
+.reaction-fab.open .reaction-btn:nth-last-child(2) { transition-delay: 30ms; }
+.reaction-fab.open .reaction-btn:nth-last-child(3) { transition-delay: 60ms; }
+.reaction-fab.open .reaction-btn:nth-last-child(4) { transition-delay: 90ms; }
+.reaction-fab.open .reaction-btn:nth-last-child(5) { transition-delay: 120ms; }
+.reaction-fab.open .reaction-btn:nth-last-child(6) { transition-delay: 150ms; }
+.reaction-btn:hover { background: var(--color-hover); }
+.reaction-btn.pop { animation: reactionPop 0.3s var(--ease-out); }
+@keyframes reactionPop {
+  50% { transform: scale(1.25); }
+}
 
 .reaction-layer {
   position: fixed; inset: 0;

@@ -797,7 +797,32 @@ function spawnReaction(emoji) {
 }
 
 document.querySelectorAll('.reaction-btn').forEach(btn => {
-  btn.addEventListener('click', () => sendReaction(btn.dataset.emoji));
+  btn.addEventListener('click', () => {
+    sendReaction(btn.dataset.emoji);
+    // Pop feedback on the tapped option
+    btn.classList.remove('pop');
+    void btn.offsetWidth;
+    btn.classList.add('pop');
+  });
+});
+
+function toggleReactionFab(open) {
+  const fab = $('reaction-fab');
+  const main = $('reaction-fab-main');
+  if (!fab) return;
+  const willOpen = open !== undefined ? open : !fab.classList.contains('open');
+  fab.classList.toggle('open', willOpen);
+  if (main) main.setAttribute('aria-expanded', String(willOpen));
+}
+
+$('reaction-fab-main')?.addEventListener('click', (e) => {
+  e.stopPropagation();
+  toggleReactionFab();
+});
+
+// Close the dial when tapping anywhere else
+document.addEventListener('click', (e) => {
+  if (!e.target.closest('#reaction-fab')) toggleReactionFab(false);
 });
 
 // ── Tab Navigation ─────────────────────────────────────────

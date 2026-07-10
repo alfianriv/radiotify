@@ -98,15 +98,6 @@
           <span id="skip-vote-text" class="skip-vote-text">0/2 votes</span>
         </div>
 
-        <!-- Reactions -->
-        <div id="reaction-bar" class="reaction-bar">
-          <button class="reaction-btn" data-emoji="🔥">🔥</button>
-          <button class="reaction-btn" data-emoji="❤️">❤️</button>
-          <button class="reaction-btn" data-emoji="🎉">🎉</button>
-          <button class="reaction-btn" data-emoji="😂">😂</button>
-          <button class="reaction-btn" data-emoji="😭">😭</button>
-          <button class="reaction-btn" data-emoji="🙌">🙌</button>
-        </div>
       </div>
     </section>
 
@@ -158,6 +149,19 @@
         <div class="empty-state">Loading stats...</div>
       </div>
     </div>
+  </div>
+
+  <!-- Reaction FAB (speed dial) -->
+  <div id="reaction-fab" class="reaction-fab">
+    <div id="reaction-options" class="reaction-options" aria-hidden="true">
+      <button class="reaction-btn" data-emoji="🙌">🙌</button>
+      <button class="reaction-btn" data-emoji="😭">😭</button>
+      <button class="reaction-btn" data-emoji="😂">😂</button>
+      <button class="reaction-btn" data-emoji="🎉">🎉</button>
+      <button class="reaction-btn" data-emoji="❤️">❤️</button>
+      <button class="reaction-btn" data-emoji="🔥">🔥</button>
+    </div>
+    <button id="reaction-fab-main" class="reaction-fab-main" aria-label="Kirim reaksi" aria-expanded="false">🔥</button>
   </div>
 
   <!-- Settings FAB -->
