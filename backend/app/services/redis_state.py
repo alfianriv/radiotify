@@ -15,6 +15,14 @@ class RedisState:
     def __init__(self):
         self.redis = redis.from_url(config.REDIS_URL, decode_responses=True)
 
+    # ── Generic Redis Proxy ───────────────────────────────
+
+    def get(self, key: str) -> Optional[str]:
+        return self.redis.get(key)
+
+    def setex(self, key: str, time: int, value: str) -> None:
+        self.redis.setex(key, time, value)
+
     # ── Radio State ─────────────────────────────────────────
 
     def get_radio_state(self) -> Optional[Dict[str, Any]]:
