@@ -765,6 +765,130 @@ body {
   height: 42vh;
 }
 
+/* ── Dedication chip ─────────────────────────────────────── */
+.dedication-chip {
+  margin-top: 10px;
+  padding: 6px 14px;
+  background: var(--color-paper-3);
+  border-radius: var(--radius-pill);
+  font-size: var(--text-2xs);
+  color: var(--color-ink-2);
+  max-width: 100%;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+
+/* ── Mood badge ──────────────────────────────────────────── */
+.mood-badge {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 4px 12px;
+  background: var(--color-paper-3);
+  border-radius: var(--radius-pill);
+  font-size: var(--text-2xs); font-weight: 600;
+  color: var(--color-neutral);
+}
+
+/* ── Reactions ───────────────────────────────────────────── */
+.reaction-bar {
+  display: flex; gap: 6px; margin-top: 18px;
+  justify-content: center; flex-wrap: wrap;
+}
+.reaction-btn {
+  width: 40px; height: 40px;
+  border-radius: var(--radius-circle);
+  background: var(--color-paper-3); border: none;
+  font-size: var(--text-md); line-height: 1;
+  cursor: pointer;
+  transition: background var(--dur-micro), transform var(--dur-micro);
+}
+.reaction-btn:hover { background: var(--color-hover); transform: scale(1.08); }
+.reaction-btn:active { transform: scale(0.92); }
+
+.reaction-layer {
+  position: fixed; inset: 0;
+  pointer-events: none; z-index: 90;
+  overflow: hidden;
+}
+.reaction-float {
+  position: absolute; bottom: 12vh;
+  font-size: 30px;
+  animation: reactionFloat 2s var(--ease-out) both;
+  will-change: transform, opacity;
+}
+@keyframes reactionFloat {
+  0%   { opacity: 0; transform: translate(0, 20px) scale(0.6); }
+  12%  { opacity: 1; transform: translate(0, 0) scale(1.1); }
+  100% { opacity: 0; transform: translate(var(--drift, 0px), -46vh) scale(1); }
+}
+
+/* ── Top tracks (history tab) ────────────────────────────── */
+.top-tracks-title {
+  font-size: var(--text-xs); font-weight: 700; color: var(--color-ink);
+  margin: 4px 0 10px;
+}
+.top-track-item {
+  display: flex; align-items: center; gap: 12px;
+  padding: 8px 10px; border-radius: var(--radius-thumb);
+  transition: background var(--dur-micro);
+}
+.top-track-item:hover { background: var(--color-paper-3); }
+.top-track-rank {
+  font-size: var(--text-sm); font-weight: 700; color: var(--color-accent);
+  min-width: 22px; text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+.top-track-thumb {
+  width: 44px; height: 44px; border-radius: var(--radius-thumb);
+  overflow: hidden; flex-shrink: 0; background: var(--color-paper-3);
+}
+.top-track-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.top-track-info { flex: 1; min-width: 0; }
+.top-track-name {
+  font-size: var(--text-xs); font-weight: 400;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.top-track-artist { font-size: var(--text-2xs); color: var(--color-neutral); margin-top: 2px; }
+.top-track-count {
+  font-size: var(--text-2xs); font-weight: 700; color: var(--color-neutral);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Request modal ───────────────────────────────────────── */
+.request-track-label {
+  font-size: var(--text-xs); color: var(--color-neutral);
+  margin-bottom: 12px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+#request-message { margin-top: 8px; }
+
+/* ── Toast ───────────────────────────────────────────────── */
+.toast {
+  position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+  padding: 10px 20px;
+  background: var(--color-paper-4); color: var(--color-ink);
+  border-radius: var(--radius-pill);
+  font-size: var(--text-xs); font-weight: 600;
+  box-shadow: var(--shadow-heavy);
+  z-index: 10001;
+  animation: fadeIn var(--dur-short) var(--ease-out);
+}
+
+/* ── TV / Karaoke mode ───────────────────────────────────── */
+.tv-clock {
+  font-size: var(--text-sm); font-weight: 700;
+  color: var(--color-neutral);
+  font-variant-numeric: tabular-nums;
+  margin-right: 12px;
+}
+.lyrics-overlay.tv-mode .lyrics-container { max-width: none; }
+.lyrics-overlay.tv-mode .lyrics-line {
+  font-size: var(--text-lg);
+  padding: 14px 24px;
+}
+.lyrics-overlay.tv-mode .lyrics-line.active { font-size: 40px; }
+.lyrics-overlay.tv-mode .lyrics-track-title { font-size: var(--text-md); max-width: 400px; }
+.lyrics-overlay.tv-mode .lyrics-track-artist { max-width: 400px; }
+.lyrics-overlay.tv-mode .lyrics-album-art { width: 56px; height: 56px; }
+
 /* ── Scrollbar ───────────────────────────────────────────── */
 ::-webkit-scrollbar { width: 6px; }
 ::-webkit-scrollbar-track { background: transparent; }
