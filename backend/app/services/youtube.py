@@ -147,7 +147,7 @@ class YouTubeMusicService:
             return None
 
         except Exception as e:
-            logger.error(f"get_lyrics error for {video_id}: {e}")
+            logger.error(f"get_lyrics error for {video_id}: {e}", exc_info=True)
             return None
 
     # ── Recommendations (Up Next) ───────────────────────────

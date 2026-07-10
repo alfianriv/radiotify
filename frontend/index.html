@@ -3,21 +3,21 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-  <meta name="theme-color" content="#0a0f1a">
+  <meta name="theme-color" content="#121212">
   <meta name="description" content="Radiotify — Synchronized Web Radio. Real-time radio for everyone.">
   <title>Radiotify</title>
   <link rel="manifest" href="/manifest.webmanifest">
   <link rel="icon" type="image/svg+xml" href="/favicon.svg">
-  <!-- Geist Sans + Geist Mono -->
-  <link rel="preconnect" href="https://cdn.jsdelivr.net">
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/geist@1.3.1/dist/fonts/geist-sans/style.min.css">
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/geist@1.3.1/dist/fonts/geist-mono/style.min.css">
+  <!-- Figtree — Circular-adjacent free face (DESIGN.md type role) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&display=swap">
 </head>
 <body>
   <!-- Tap overlay for audio unlock -->
   <div id="tap-overlay" class="tap-overlay">
     <div class="tap-content">
-      <span class="tap-icon">📻</span>
+      <div class="tap-play"><svg width="30" height="30" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg></div>
       <h2>Tap to start</h2>
       <p>Real-time synchronized radio</p>
       <span class="tap-hint">All listeners hear the same playback</span>
@@ -47,7 +47,7 @@
       <div class="hero-content">
         <!-- Album Art -->
         <div id="album-art" class="album-art">
-          <div class="album-art-placeholder">📻</div>
+          <div class="album-art-placeholder"><svg width="64" height="64" viewBox="0 0 24 24" fill="currentColor"><path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/></svg></div>
         </div>
 
         <!-- Track Info -->
