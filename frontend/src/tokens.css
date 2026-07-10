@@ -1,0 +1,99 @@
+/* Radiotify design tokens — locked system: frontend/DESIGN.md (Spotify DNA)
+   Surfaces are achromatic near-black; the only chroma is the functional
+   green accent and album artwork. */
+:root {
+  /* Surfaces — #121212 / #181818 / #1f1f1f / #252525 */
+  --color-paper:    oklch(18% 0 0);
+  --color-paper-2:  oklch(21% 0 0);
+  --color-paper-3:  oklch(24% 0 0);
+  --color-paper-4:  oklch(27% 0 0);
+  --color-hover:    oklch(32% 0 0);
+
+  /* Rules & text — silver ladder */
+  --color-rule:     oklch(42% 0 0);   /* #4d4d4d */
+  --color-rule-2:   oklch(57% 0 0);   /* #7c7c7c */
+  --color-muted:    oklch(65% 0 0);
+  --color-neutral:  oklch(76% 0 0);   /* #b3b3b3 */
+  --color-ink-2:    oklch(83% 0 0);
+  --color-ink:      oklch(100% 0 0);
+
+  /* Accent — functional green only (#1ed760) */
+  --color-accent:     oklch(77% 0.21 150);
+  --color-accent-2:   oklch(82% 0.21 150);  /* hover brighten */
+  --color-accent-ink: oklch(15% 0 0);
+  --color-focus:      oklch(100% 0 0);
+
+  /* Semantic */
+  --danger:    oklch(69% 0.15 15);    /* #f3727f */
+  --danger-bg: oklch(50% 0.17 20);
+  --warning:   oklch(79% 0.15 70);    /* #ffa42b */
+  --info:      oklch(66% 0.14 255);   /* #539df5 */
+
+  /* Shape — pill-and-circle geometry */
+  --radius-thumb:  4px;
+  --radius-card:   8px;
+  --radius-panel:  8px;
+  --radius-input:  500px;
+  --radius-pill:   500px;
+  --radius-circle: 50%;
+
+  /* Overlays & fills */
+  --color-scrim:      rgba(0, 0, 0, 0.7);          /* modal overlay */
+  --color-scrim-soft: rgba(0, 0, 0, 0.25);         /* hero legibility wash */
+  --color-backdrop: oklch(13% 0 0 / 0.97);         /* lyrics overlay */
+  --color-bar:      oklch(21% 0 0 / 0.96);         /* fixed admin bar */
+  --color-track:    oklch(100% 0 0 / 0.18);        /* progress track */
+
+  /* Elevation — heavy shadows, no gray borders */
+  --shadow-heavy:  rgba(0, 0, 0, 0.5) 0px 8px 24px;
+  --shadow-medium: rgba(0, 0, 0, 0.3) 0px 8px 8px;
+  --shadow-up:     rgba(0, 0, 0, 0.5) 0px -8px 24px;
+  --shadow-inset:  oklch(18% 0 0) 0px 1px 0px, oklch(57% 0 0) 0px 0px 0px 1px inset;
+  --shadow-inset-focus: oklch(18% 0 0) 0px 1px 0px, oklch(100% 0 0) 0px 0px 0px 1px inset;
+
+  /* Typography — Circular-adjacent free face, bold/regular binary */
+  --font-display: "Figtree", "Helvetica Neue", Helvetica, Arial, system-ui, sans-serif;
+  --font-body:    "Figtree", "Helvetica Neue", Helvetica, Arial, system-ui, sans-serif;
+
+  --text-micro: 0.625rem;   /* 10px */
+  --text-2xs:   0.75rem;    /* 12px */
+  --text-xs:    0.875rem;   /* 14px */
+  --text-sm:    1rem;       /* 16px */
+  --text-md:    1.125rem;   /* 18px */
+  --text-lg:    1.5rem;     /* 24px */
+
+  --tracking-btn: 1.4px;
+
+  /* Spacing — 8px base */
+  --space-3xs: 0.125rem;
+  --space-2xs: 0.25rem;
+  --space-xs:  0.5rem;
+  --space-sm:  0.75rem;
+  --space-md:  1rem;
+  --space-lg:  1.5rem;
+  --space-xl:  2.5rem;
+  --space-2xl: 4rem;
+
+  /* Motion */
+  --ease-out:  cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in:   cubic-bezier(0.7, 0, 0.84, 0);
+  --dur-micro: 120ms;
+  --dur-short: 220ms;
+  --dur-long:  420ms;
+
+  /* Legacy compat — names referenced by main.js and older rules */
+  --bg-primary:     var(--color-paper);
+  --bg-base:        var(--color-paper);
+  --bg-surface:     var(--color-paper-2);
+  --bg-elevated:    var(--color-paper-3);
+  --bg-card:        var(--color-paper-3);
+  --bg-highlight:   var(--color-hover);
+  --text-primary:   var(--color-ink);
+  --text-secondary: var(--color-neutral);
+  --text-subdued:   var(--color-muted);
+  --accent:         var(--color-accent);
+  --accent-hover:   var(--color-accent-2);
+  --accent-dark:    oklch(70% 0.19 150);
+  --font:           var(--font-body);
+  --radius-full:    var(--radius-pill);
+}

@@ -1,0 +1,4 @@
+[
+  { "date": "2026-07-10", "scope": "app", "macrostructure": "app-player", "theme": "studied-DNA (frontend/DESIGN.md — Spotify)", "enrichment": "none", "brief": "Radiotify player — de-slop redesign onto locked Spotify-DNA system" },
+  { "date": "2026-06-30", "macrostructure": "app-player", "theme": "Aurora", "enrichment": "atmospheric bloom", "brief": "Radiotify player — Hallmark Aurora theme (superseded; drifted from DESIGN.md)" }
+]
