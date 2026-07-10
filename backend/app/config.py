@@ -27,5 +27,12 @@ class Config:
         os.path.join(os.path.dirname(__file__), '..', '..', 'cookies.txt'),
     )
 
+    # ── AI DJ ────────────────────────────────────────────────
+    OPENROUTER_API_KEY: str = os.getenv('OPENROUTER_API_KEY', '')
+    DJ_ENABLED: bool = os.getenv('DJ_ENABLED', 'true').lower() == 'true'
+    DJ_MODEL: str = os.getenv('DJ_MODEL', 'meta-llama/llama-3.3-70b-instruct:free')
+    DJ_VOICE: str = os.getenv('DJ_VOICE', 'id-ID-ArdiNeural')
+    DJ_EVERY_N_TRACKS: int = int(os.getenv('DJ_EVERY_N_TRACKS', '4'))
+
 
 config = Config()

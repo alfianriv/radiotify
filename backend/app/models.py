@@ -13,6 +13,7 @@ class TrackMeta(BaseModel):
     thumbnail: Optional[str] = None
     requested_by: Optional[str] = None
     dedication: Optional[str] = None
+    is_dj: Optional[bool] = None
 
 
 class RadioStateResponse(BaseModel):

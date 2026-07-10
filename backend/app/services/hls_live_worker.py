@@ -327,6 +327,9 @@ class HlsLiveWorker:
                 # Clean up incomplete encode
                 shutil.rmtree(out_dir, ignore_errors=True)
                 self._current_track_id = old_track_id  # revert so old track stays "current"
+                # Do NOT fall through to old-track cleanup: old_track_id is
+                # the track still on air — deleting its folder kills playback
+                return
             else:
                 # Spurious event (prefetch queued) — let ffmpeg finish
                 logger.info("HLS: spurious event during encode of %s, waiting for ffmpeg...", track_id)
@@ -367,6 +370,11 @@ class HlsLiveWorker:
     async def _cleanup_old_track(self, track_id: str):
         """Remove old track's HLS folder after a delay."""
         await asyncio.sleep(CLEANUP_DELAY)
+        # Defense in depth: never delete the folder of whatever is current
+        # by the time the delay elapses (e.g. after an interrupted encode)
+        if track_id in (self._current_track_id, self._pending_id):
+            logger.info("HLS: skip cleanup of %s — still current/pending", track_id)
+            return
         old_dir = self.get_track_dir(track_id)
         if old_dir.exists():
             shutil.rmtree(old_dir, ignore_errors=True)

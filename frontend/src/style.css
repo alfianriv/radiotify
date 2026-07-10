@@ -765,6 +765,16 @@ body {
   height: 42vh;
 }
 
+/* ── DJ break ────────────────────────────────────────────── */
+.album-art-placeholder.dj-on-air {
+  color: var(--color-accent);
+  animation: djPulse 2s ease-in-out infinite;
+}
+@keyframes djPulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.55; }
+}
+
 /* ── Dedication chip ─────────────────────────────────────── */
 .dedication-chip {
   margin-top: 10px;
@@ -775,16 +785,6 @@ body {
   color: var(--color-ink-2);
   max-width: 100%;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-}
-
-/* ── Mood badge ──────────────────────────────────────────── */
-.mood-badge {
-  display: inline-flex; align-items: center; gap: 4px;
-  padding: 4px 12px;
-  background: var(--color-paper-3);
-  border-radius: var(--radius-pill);
-  font-size: var(--text-2xs); font-weight: 600;
-  color: var(--color-neutral);
 }
 
 /* ── Reactions — floating speed dial ─────────────────────── */

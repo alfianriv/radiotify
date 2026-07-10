@@ -10,6 +10,7 @@ from .config import config
 from .services.redis_state import RedisState
 from .services.youtube import YouTubeMusicService
 from .services.db import Database
+from .services.dj import DjService, build_context
 
 logger = logging.getLogger(__name__)
 
@@ -37,6 +38,11 @@ class RadioEngine:
         self._running = False
         self._broadcast_fn: Optional[Callable[[str, Any], Awaitable[None]]] = None
         self._tick_interval = 1.0  # seconds
+        # AI DJ interstitials
+        self.dj = DjService()
+        self._tracks_since_dj = 0
+        self._dj_clip_ready: Optional[Dict[str, Any]] = None
+        self._dj_generating = False
 
     def set_broadcast_fn(self, fn: Callable[[str, Any], Awaitable[None]]):
         """Set WebSocket broadcast function."""
@@ -133,6 +139,8 @@ class RadioEngine:
         """Reject preview/short clips before they enter radio state/history."""
         if not track:
             return False
+        if track.get('is_dj'):
+            return True  # DJ interstitials are intentionally short
         title = (track.get('title') or '').lower()
         duration = track.get('duration_seconds') or 0
         return 'preview' not in title and duration >= 60
@@ -296,15 +304,16 @@ class RadioEngine:
                     }
                 logger.info(f"Skipping invalid queued track: {track.get('title') if track else video_id}")
 
+        import random
+
         # Priority 2: YouTube Music Up Next
         state = self.redis.get_radio_state()
+        recent = self.redis.get_recent_history(30)
         if state and state.get('current_track_id'):
             up_next = self.youtube.get_up_next(state['current_track_id'], limit=15)
             if up_next:
                 # Filter recently played
-                recent = self.redis.get_recent_history(30)
                 candidates = [vid for vid in up_next if vid not in recent]
-                import random
                 random.shuffle(candidates)  # avoid always picking same track
                 for candidate in candidates:
                     track = await self._resolve_track(candidate)
@@ -312,10 +321,25 @@ class RadioEngine:
                         return track
                     logger.info(f"Skipping invalid up-next track: {track.get('title') if track else candidate}")
 
-        # Priority 3: Random track, seeded by the current mood block
-        from .services.moods import get_mood
-        recent = self.redis.get_recent_history(50)
-        track = self.youtube.get_random_track(exclude=recent, seed_queries=get_mood()['queries'])
+        # Priority 3: related to the last 5 played tracks — keeps the vibe
+        # continuous instead of jumping to unrelated mood/chart picks
+        current_id = (state or {}).get('current_track_id')
+        seeds = [vid for vid in recent[:5] if vid != current_id]
+        for seed in seeds:
+            try:
+                related = self.youtube.get_up_next(seed, limit=10)
+            except Exception:
+                related = []
+            candidates = [vid for vid in related if vid not in recent]
+            random.shuffle(candidates)
+            for candidate in candidates[:5]:
+                track = await self._resolve_track(candidate)
+                if self._is_valid_track(track):
+                    logger.info(f"Next from history-related seed {seed}: {track.get('title')}")
+                    return track
+
+        # Priority 4: random charts track — last resort
+        track = self.youtube.get_random_track(exclude=recent)
         return track
 
     async def _resolve_track(self, video_id: str) -> Optional[Dict[str, Any]]:
@@ -363,10 +387,46 @@ class RadioEngine:
                 self.redis.pop_queue_front()
                 await self.broadcast('QUEUE_UPDATED', {'queue': self.redis.get_queue()})
 
-        # Add current track to history BEFORE transitioning (unless skipped)
-        if state and state.get('current_track_id') and not skip_history:
+        # Add current track to history BEFORE transitioning (unless skipped
+        # or the ending "track" was a DJ interstitial)
+        ending_meta = (state or {}).get('current_track_meta') or {}
+        if state and state.get('current_track_id') and not skip_history and not ending_meta.get('is_dj'):
             self.redis.add_to_history(state['current_track_id'])
             self.db.add_play_history(state['current_track_id'], source='auto')
+
+        # AI DJ interstitial: play the prepared clip first, keep the real
+        # next track preloaded so the following transition picks it up
+        clip = self._dj_clip_ready
+        if clip and not ending_meta.get('is_dj'):
+            self._dj_clip_ready = None
+            state_mood = (state or {}).get('mood') or 'On Air'
+            await self._play_track(clip['clip_id'], meta={
+                'video_id': clip['clip_id'],
+                'title': 'DJ Radiotify',
+                'artist': state_mood,
+                # pad by the crossfade so the tail of the speech isn't cut
+                'duration_seconds': int(clip['duration_seconds']) + int(config.CROSSFADE_MS / 1000) + 1,
+                'thumbnail': None,
+                'is_dj': True,
+            }, source='dj', add_history=False)
+            self._tracks_since_dj = 0
+            # Re-inject the real next track into state
+            new_state = self.redis.get_radio_state()
+            if new_state:
+                new_state['next_track_id'] = next_track['video_id']
+                new_state['next_track_meta'] = {
+                    'video_id': next_track['video_id'],
+                    'title': next_track.get('title', 'Unknown'),
+                    'artist': next_track.get('artist', 'Unknown'),
+                    'duration_seconds': next_track.get('duration_seconds'),
+                    'thumbnail': next_track.get('thumbnail'),
+                    'requested_by': next_track.get('requested_by'),
+                    'dedication': next_track.get('dedication'),
+                }
+                self.redis.set_radio_state(new_state)
+                self._prepare_audio_background(next_track['video_id'])
+                self._prefetch_hls(next_track['video_id'])
+            return
 
         await self._play_track(next_track['video_id'], meta=next_track, source='auto', add_history=False)
 
@@ -412,6 +472,8 @@ class RadioEngine:
         self.redis.set_radio_state(state)
         self._prepare_audio_background(video_id)
         self._notify_hls_worker(video_id)
+        if not meta.get('is_dj'):
+            self._tracks_since_dj += 1
         if add_history:
             self.redis.add_to_history(video_id)
             self.db.add_play_history(video_id, source=source)
@@ -468,6 +530,41 @@ class RadioEngine:
         self._prepare_audio_background(next_track['video_id'])
         self._prefetch_hls(next_track['video_id'])
         logger.info(f"⏭ Next prepared: {next_track.get('title')} — {next_track.get('artist')}")
+
+        # Kick off DJ clip generation in the preload window (~20s) if due
+        self._maybe_generate_dj_clip(state, next_track)
+
+    def _maybe_generate_dj_clip(self, state: Dict[str, Any], next_track: Dict[str, Any]):
+        """Generate a DJ interstitial in the background when one is due."""
+        if (not self.dj.enabled
+                or self._dj_generating
+                or self._dj_clip_ready
+                or self._tracks_since_dj < config.DJ_EVERY_N_TRACKS
+                or next_track.get('is_dj')):
+            return
+
+        try:
+            from .main import ws_connections
+            listeners = len(ws_connections)
+        except Exception:
+            listeners = 0
+        ctx = build_context(
+            state.get('current_track_meta'),
+            state.get('next_track_meta'),
+            mood=state.get('mood') or '',
+            listeners=listeners,
+        )
+        self._dj_generating = True
+
+        async def _run():
+            try:
+                self._dj_clip_ready = await self.dj.generate_clip(ctx)
+            except Exception as e:
+                logger.warning(f"DJ clip generation failed: {e}")
+            finally:
+                self._dj_generating = False
+
+        asyncio.create_task(_run())
 
     async def _ensure_next_track(self):
         """Ensure next track is prepared (called on resume)."""
