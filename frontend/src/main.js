@@ -31,6 +31,7 @@ let lyricsData = null; // [{time_ms, text}, ...]
 let lyricsActive = false;
 let lyricsRafId = null;
 let currentLyricsVideoId = null;
+let wakeLock = null; // Screen Wake Lock
 const isStandalonePwa = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
 const isIosDevice = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 
@@ -67,6 +68,13 @@ function initAudioPlayers() {
     audio.preload = 'auto';
     audio.crossOrigin = 'anonymous';
     audio.volume = 0;
+    // Sync MediaSession playback state with actual audio
+    audio.addEventListener('play', () => {
+      if ('mediaSession' in navigator) navigator.mediaSession.playbackState = 'playing';
+    });
+    audio.addEventListener('pause', () => {
+      if ('mediaSession' in navigator) navigator.mediaSession.playbackState = 'paused';
+    });
   });
 }
 
@@ -582,6 +590,7 @@ function openLyricsOverlay() {
   overlay.classList.remove('hidden');
   lyricsActive = true;
   startLyricsSync();
+  requestWakeLock();
 
   // Mark button as active
   const btn = $('btn-lyrics');
@@ -595,10 +604,28 @@ function closeLyricsOverlay() {
   overlay.classList.add('hidden');
   lyricsActive = false;
   stopLyricsSync();
+  releaseWakeLock();
 
   // Remove button active state
   const btn = $('btn-lyrics');
   if (btn) btn.classList.remove('active');
+}
+
+async function requestWakeLock() {
+  if (!('wakeLock' in navigator)) return;
+  try {
+    wakeLock = await navigator.wakeLock.request('screen');
+    wakeLock.addEventListener('release', () => { wakeLock = null; });
+  } catch (e) {
+    console.warn('Wake Lock request failed:', e);
+  }
+}
+
+function releaseWakeLock() {
+  if (wakeLock) {
+    wakeLock.release();
+    wakeLock = null;
+  }
 }
 
 async function loadLyricsForTrack(videoId) {
@@ -932,6 +959,7 @@ function showAdminUI() {
     $('maintenance-btn-disable').classList.remove('hidden');
   }
   loadQueue(); // re-render with remove buttons
+  refreshMediaSession();
 }
 
 function adminLogout() {
@@ -948,6 +976,7 @@ function adminLogout() {
     document.querySelector('[data-tab="queue"]').click();
   }
   loadQueue();
+  refreshMediaSession();
 }
 
 async function adminFetch(url, options = {}) {
@@ -1099,7 +1128,6 @@ $('btn-maintenance').addEventListener('click', async () => {
 });
 
 $('btn-skip').addEventListener('click', async () => {
-  if (!confirm('Skip current track?')) return;
   await adminFetch(`${API_BASE}/admin/skip`, { method: 'POST' });
 });
 
@@ -1212,6 +1240,15 @@ $('btn-vote-skip').addEventListener('click', voteSkip);
 
 // ── Media Session API ──────────────────────────────────────
 
+function refreshMediaSession() {
+  if (!radioState) return;
+  const meta = radioState.meta || radioState.current_track_meta || {};
+  const trackId = radioState.track_id || radioState.current_track_id;
+  const thumb = meta.thumbnail || meta.thumbnail_url
+    || (trackId ? `https://img.youtube.com/vi/${trackId}/maxresdefault.jpg` : null);
+  setupMediaSession(meta.title, meta.artist, thumb);
+}
+
 function setupMediaSession(title, artist, thumbnail) {
   if (!('mediaSession' in navigator)) return;
   navigator.mediaSession.metadata = new MediaMetadata({
@@ -1219,6 +1256,7 @@ function setupMediaSession(title, artist, thumbnail) {
     artist: artist || 'Synced Radio',
     artwork: thumbnail ? [{ src: thumbnail, sizes: '512x512', type: 'image/jpeg' }] : [],
   });
+  navigator.mediaSession.playbackState = 'playing';
   navigator.mediaSession.setActionHandler('play', () => {
     if (isNativeAudioMode()) getActiveAudio()?.play();
     else getActivePlayer()?.playVideo?.();
@@ -1226,6 +1264,16 @@ function setupMediaSession(title, artist, thumbnail) {
   navigator.mediaSession.setActionHandler('pause', () => {
     if (isNativeAudioMode()) getActiveAudio()?.pause();
     else getActivePlayer()?.pauseVideo?.();
+  });
+  // Always set nexttrack — admin uses admin-skip, non-admin uses vote-skip
+  navigator.mediaSession.setActionHandler('nexttrack', async () => {
+    try {
+      if (isAdmin) {
+        await adminFetch(`${API_BASE}/admin/skip`, { method: 'POST' });
+      } else {
+        await fetch(`${API_BASE}/radio/vote-skip`, { method: 'POST' });
+      }
+    } catch {}
   });
 }
 
@@ -1429,3 +1477,10 @@ if (isMobile) {
     $('tap-overlay').addEventListener('click', unlockAudio, { once: true });
   });
 }
+
+// Re-acquire wake lock when page becomes visible (browser releases it on background)
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible' && lyricsActive) {
+    requestWakeLock();
+  }
+});
