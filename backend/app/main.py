@@ -140,6 +140,7 @@ async def no_stale_pwa_shell(request, call_next):
 
 # Register API routes
 app.include_router(radio.router)
+app.include_router(radio.share_router)
 app.include_router(queue.router)
 app.include_router(admin.router)
 app.include_router(audio.router)
@@ -194,10 +195,22 @@ async def websocket_endpoint(websocket: WebSocket):
         pass
 
     try:
+        import json as _json
+        import time as _time
+        ALLOWED_REACTIONS = {'🔥', '❤️', '🎉', '😂', '😭', '🙌'}
+        last_reaction_at = 0.0
         while True:
-            # Keep connection alive, receive any client messages
             data = await websocket.receive_text()
-            # Client messages are ignored for now (all control via REST)
+            # Only client message supported: {"type": "REACTION", "emoji": "🔥"}
+            try:
+                msg = _json.loads(data)
+            except (ValueError, TypeError):
+                continue
+            if msg.get('type') == 'REACTION' and msg.get('emoji') in ALLOWED_REACTIONS:
+                now = _time.monotonic()
+                if now - last_reaction_at >= 1.0:  # 1 reaction/sec per connection
+                    last_reaction_at = now
+                    await broadcast_event('REACTION', {'emoji': msg['emoji']})
     except WebSocketDisconnect:
         ws_connections.discard(websocket)
         logger.info(f"WebSocket disconnected. Total: {len(ws_connections)}")

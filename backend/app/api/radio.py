@@ -2,15 +2,21 @@
 import time
 import logging
 import json
-from fastapi import APIRouter, Depends, Request
-from fastapi.responses import JSONResponse
+import html as html_lib
 
-from ..models import RadioStateResponse, VoteSkipResponse
+from fastapi import APIRouter, Depends, Request
+from fastapi.responses import JSONResponse, HTMLResponse
+
+from ..models import (
+    RadioStateResponse, VoteSkipResponse,
+    HistoryResponse, HistoryItem, TopTracksResponse, TopTrackItem,
+)
 from ..services.redis_state import RedisState
 from ..services.db import Database
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/radio", tags=["radio"])
+share_router = APIRouter(tags=["share"])
 
 
 def get_redis() -> RedisState:
@@ -81,6 +87,8 @@ async def get_radio_state():
         next_audio_status=next_audio.get('status'),
         maintenance=maintenance,
         maintenance_message=maintenance_message,
+        mood=state.get('mood'),
+        mood_emoji=state.get('mood_emoji'),
     )
 
 
@@ -160,6 +168,54 @@ async def playback_resumed():
     if not db.is_maintenance_mode():
         await broadcast_event('PLAYBACK_RESUMED', {})
     return {"ok": True}
+
+
+@router.get("/history", response_model=HistoryResponse)
+async def get_public_history(limit: int = 20):
+    """Recently played tracks — public."""
+    db = get_db()
+    limit = max(1, min(limit, 100))
+    items = db.get_history(limit=limit)
+    return HistoryResponse(history=[HistoryItem(**h) for h in items])
+
+
+@router.get("/top", response_model=TopTracksResponse)
+async def get_top_tracks(days: int = 7, limit: int = 10):
+    """Most-played tracks in the last `days` — public."""
+    db = get_db()
+    days = max(1, min(days, 90))
+    limit = max(1, min(limit, 50))
+    items = db.get_top_tracks(days=days, limit=limit)
+    return TopTracksResponse(top=[TopTrackItem(**t) for t in items], days=days)
+
+
+@share_router.get("/share", response_class=HTMLResponse)
+async def share_page():
+    """Shareable now-playing page: OG meta for link previews, instant
+    redirect to the app for humans."""
+    redis = get_redis()
+    state = redis.get_radio_state() or {}
+    meta = state.get('current_track_meta', {})
+    title = html_lib.escape(meta.get('title') or 'Radiotify')
+    artist = html_lib.escape(meta.get('artist') or '')
+    thumb = html_lib.escape(meta.get('thumbnail') or '')
+    og_title = f"▶ {title} — {artist} | Radiotify" if artist else f"▶ {title} | Radiotify"
+    return HTMLResponse(f"""<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="utf-8">
+  <title>{og_title}</title>
+  <meta property="og:type" content="music.radio_station">
+  <meta property="og:title" content="{og_title}">
+  <meta property="og:description" content="Dengar bareng — radio tersinkronisasi. Semua pendengar ada di detik yang sama.">
+  <meta property="og:image" content="{thumb}">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta http-equiv="refresh" content="0;url=/">
+</head>
+<body>
+  <p>Mengalihkan ke <a href="/">Radiotify</a>…</p>
+</body>
+</html>""")
 
 
 @router.get("/stats")

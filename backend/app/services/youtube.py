@@ -179,18 +179,25 @@ class YouTubeMusicService:
 
     # ── Random Track ────────────────────────────────────────
 
-    def get_random_track(self, exclude: List[str] = None) -> Optional[Dict[str, Any]]:
-        """Get a random popular track from charts."""
+    def get_random_track(self, exclude: List[str] = None,
+                         seed_queries: List[str] = None) -> Optional[Dict[str, Any]]:
+        """Get a random popular track from charts, or from mood seed queries."""
         exclude = exclude or []
         songs = []
         try:
-            # Try trending songs first
-            try:
-                charts = self.ytmusic.get_charts()
-                songs = charts.get('songs', {}).get('items', [])
-            except (StopIteration, Exception) as charts_err:
-                logger.warning(f"get_charts failed ({type(charts_err).__name__}), falling back to search")
-                songs = []
+            # Mood seeds take priority over generic charts
+            if seed_queries:
+                query = random.choice(seed_queries)
+                songs = self.ytmusic.search(query, filter='songs', limit=20)
+
+            if not songs:
+                # Try trending songs
+                try:
+                    charts = self.ytmusic.get_charts()
+                    songs = charts.get('songs', {}).get('items', [])
+                except (StopIteration, Exception) as charts_err:
+                    logger.warning(f"get_charts failed ({type(charts_err).__name__}), falling back to search")
+                    songs = []
 
             if not songs:
                 # Fallback: search popular music
