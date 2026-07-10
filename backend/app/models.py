@@ -11,6 +11,8 @@ class TrackMeta(BaseModel):
     artist: Optional[str] = None
     duration_seconds: Optional[int] = None
     thumbnail: Optional[str] = None
+    requested_by: Optional[str] = None
+    dedication: Optional[str] = None
 
 
 class RadioStateResponse(BaseModel):
@@ -27,6 +29,8 @@ class RadioStateResponse(BaseModel):
     next_audio_status: Optional[str] = None
     maintenance: bool = False
     maintenance_message: Optional[str] = None
+    mood: Optional[str] = None
+    mood_emoji: Optional[str] = None
 
 
 # ── Queue ───────────────────────────────────────────────────
@@ -37,6 +41,7 @@ class QueueItem(BaseModel):
     artist: Optional[str] = None
     thumbnail: Optional[str] = None
     added_by: Optional[str] = None
+    message: Optional[str] = None
     source: str = 'user'
 
 
@@ -44,6 +49,8 @@ class QueueAddRequest(BaseModel):
     video_id: str
     title: Optional[str] = None
     artist: Optional[str] = None
+    nickname: Optional[str] = None
+    message: Optional[str] = None
 
 
 class SearchRequest(BaseModel):
@@ -112,6 +119,19 @@ class HistoryItem(BaseModel):
 
 class HistoryResponse(BaseModel):
     history: List[HistoryItem]
+
+
+class TopTrackItem(BaseModel):
+    video_id: str
+    title: Optional[str] = None
+    artist: Optional[str] = None
+    thumbnail_url: Optional[str] = None
+    play_count: int
+
+
+class TopTracksResponse(BaseModel):
+    top: List[TopTrackItem]
+    days: int = 7
 
 
 # ── Vote Skip ───────────────────────────────────────────────

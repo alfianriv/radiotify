@@ -53,6 +53,7 @@
         <!-- Track Info -->
         <h1 id="track-title" class="track-title">Loading...</h1>
         <p id="track-artist" class="track-artist">Connecting to radio</p>
+        <div id="dedication-chip" class="dedication-chip hidden"></div>
 
         <!-- Playback Status -->
         <div id="playback-status" class="playback-status" data-kind="ok">Initializing</div>
@@ -81,6 +82,10 @@
           <button id="btn-lyrics" class="lyrics-btn hidden" aria-label="Show lyrics">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/></svg>
           </button>
+          <button id="btn-share" class="lyrics-btn" aria-label="Share">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81 1.66 0 3-1.34 3-3s-1.34-3-3-3-3 1.34-3 3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9c-1.66 0-3 1.34-3 3s1.34 3 3 3c.79 0 1.5-.31 2.04-.81l7.12 4.16c-.05.21-.08.43-.08.65 0 1.61 1.31 2.92 2.92 2.92 1.61 0 2.92-1.31 2.92-2.92s-1.31-2.92-2.92-2.92z"/></svg>
+          </button>
+          <span id="mood-badge" class="mood-badge hidden"></span>
           <span id="admin-badge" class="admin-badge hidden">ADMIN</span>
         </div>
 
@@ -92,14 +97,18 @@
           </div>
           <span id="skip-vote-text" class="skip-vote-text">0/2 votes</span>
         </div>
+
       </div>
     </section>
+
+    <!-- Floating reactions layer -->
+    <div id="reaction-layer" class="reaction-layer" aria-hidden="true"></div>
 
     <!-- Tab Navigation -->
     <nav class="tab-nav">
       <button class="tab-btn active" data-tab="queue">Queue</button>
       <button class="tab-btn" data-tab="search">Search</button>
-      <button id="tab-btn-history" class="tab-btn hidden" data-tab="history">History</button>
+      <button id="tab-btn-history" class="tab-btn" data-tab="history">History</button>
       <button id="tab-btn-stats" class="tab-btn hidden" data-tab="stats">Stats</button>
     </nav>
 
@@ -129,8 +138,9 @@
     </div>
 
     <div id="tab-history" class="tab-content">
+      <div id="top-tracks" class="top-tracks"></div>
       <div id="history-list" class="history-list">
-        <div class="empty-state">Login as admin to view history</div>
+        <div class="empty-state">Loading history...</div>
       </div>
     </div>
 
@@ -139,6 +149,19 @@
         <div class="empty-state">Loading stats...</div>
       </div>
     </div>
+  </div>
+
+  <!-- Reaction FAB (speed dial) -->
+  <div id="reaction-fab" class="reaction-fab">
+    <div id="reaction-options" class="reaction-options" aria-hidden="true">
+      <button class="reaction-btn" data-emoji="🙌">🙌</button>
+      <button class="reaction-btn" data-emoji="😭">😭</button>
+      <button class="reaction-btn" data-emoji="😂">😂</button>
+      <button class="reaction-btn" data-emoji="🎉">🎉</button>
+      <button class="reaction-btn" data-emoji="❤️">❤️</button>
+      <button class="reaction-btn" data-emoji="🔥">🔥</button>
+    </div>
+    <button id="reaction-fab-main" class="reaction-fab-main" aria-label="Kirim reaksi" aria-expanded="false">🔥</button>
   </div>
 
   <!-- Settings FAB -->
@@ -159,6 +182,14 @@
     <button id="settings-playback" class="settings-item">
       <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 3v9.28a4.39 4.39 0 0 0-1.5-.28C8.01 12 6 14.01 6 16.5S8.01 21 10.5 21c2.31 0 4.2-1.75 4.45-4H15V6h4V3h-7z"/></svg>
       <span id="settings-playback-label">Mode: HLS Audio Stream</span>
+    </button>
+    <button id="settings-nickname" class="settings-item">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>
+      <span id="settings-nickname-label">Nickname</span>
+    </button>
+    <button id="settings-tv" class="settings-item">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M21 3H3c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h5v2h8v-2h5c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 14H3V5h18v12z"/></svg>
+      TV Mode
     </button>
     <button id="settings-about" class="settings-item">
       <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/></svg>
@@ -194,6 +225,27 @@
     </div>
   </div>
 
+  <!-- Request Modal (nickname + optional dedication) -->
+  <div id="request-modal" class="modal-overlay">
+    <div class="modal modal-sm">
+      <div class="modal-header">
+        <h2>Request Lagu</h2>
+        <button id="request-modal-close" class="modal-close">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </div>
+      <div class="modal-body">
+        <p id="request-track-label" class="request-track-label"></p>
+        <input type="text" id="request-nickname" placeholder="Nama kamu" maxlength="24" autocomplete="off">
+        <input type="text" id="request-message" placeholder="Pesan / salam-salam (opsional)" maxlength="100" autocomplete="off">
+        <button id="btn-send-request" class="btn btn-accent btn-full">Kirim Request</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast -->
+  <div id="toast" class="toast hidden"></div>
+
   <!-- Lyrics Overlay -->
   <div id="lyrics-overlay" class="lyrics-overlay hidden">
     <div class="lyrics-backdrop"></div>
@@ -206,6 +258,7 @@
             <p id="lyrics-track-artist" class="lyrics-track-artist">-</p>
           </div>
         </div>
+        <span id="tv-clock" class="tv-clock hidden"></span>
         <button id="btn-lyrics-close" class="lyrics-close-btn" aria-label="Close lyrics">
           <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
         </button>

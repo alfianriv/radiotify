@@ -288,7 +288,12 @@ class RadioEngine:
                     await self.broadcast('QUEUE_UPDATED', {'queue': self.redis.get_queue()})
                 track = await self._resolve_track(video_id)
                 if self._is_valid_track(track):
-                    return track
+                    # Carry listener attribution through to playback
+                    return {
+                        **track,
+                        'requested_by': item.get('added_by'),
+                        'dedication': item.get('message'),
+                    }
                 logger.info(f"Skipping invalid queued track: {track.get('title') if track else video_id}")
 
         # Priority 2: YouTube Music Up Next
@@ -307,9 +312,10 @@ class RadioEngine:
                         return track
                     logger.info(f"Skipping invalid up-next track: {track.get('title') if track else candidate}")
 
-        # Priority 3: Random track
+        # Priority 3: Random track, seeded by the current mood block
+        from .services.moods import get_mood
         recent = self.redis.get_recent_history(50)
-        track = self.youtube.get_random_track(exclude=recent)
+        track = self.youtube.get_random_track(exclude=recent, seed_queries=get_mood()['queries'])
         return track
 
     async def _resolve_track(self, video_id: str) -> Optional[Dict[str, Any]]:
@@ -332,6 +338,8 @@ class RadioEngine:
                 'artist': next_meta.get('artist'),
                 'duration_seconds': next_meta.get('duration_seconds'),
                 'thumbnail': next_meta.get('thumbnail'),
+                'requested_by': next_meta.get('requested_by'),
+                'dedication': next_meta.get('dedication'),
             }
 
         if next_track and not self._is_valid_track(next_track):
@@ -381,6 +389,7 @@ class RadioEngine:
         duration_ms = (meta.get('duration_seconds') or 180) * 1000
         play_window_ms = max(1000, duration_ms - config.CROSSFADE_MS)
 
+        from .services.moods import get_mood
         state = {
             'current_track_id': video_id,
             'current_track_meta': {
@@ -389,11 +398,15 @@ class RadioEngine:
                 'artist': meta.get('artist', 'Unknown'),
                 'duration_seconds': meta.get('duration_seconds'),
                 'thumbnail': meta.get('thumbnail') or meta.get('thumbnail_url'),
+                'requested_by': meta.get('requested_by'),
+                'dedication': meta.get('dedication'),
             },
             'next_track_id': None,
             'next_track_meta': None,
             'started_at_ms': now_ms,
             'transition_at_ms': now_ms + play_window_ms,
+            'mood': get_mood()['name'],
+            'mood_emoji': get_mood()['emoji'],
         }
 
         self.redis.set_radio_state(state)
@@ -415,6 +428,8 @@ class RadioEngine:
             'started_at_ms': now_ms,
             'transition_at_ms': now_ms + play_window_ms,
             'server_time_ms': now_ms,
+            'mood': state['mood'],
+            'mood_emoji': state['mood_emoji'],
         })
 
         # Clear skip votes on track change
@@ -446,6 +461,8 @@ class RadioEngine:
             'artist': next_track.get('artist', 'Unknown'),
             'duration_seconds': next_track.get('duration_seconds'),
             'thumbnail': next_track.get('thumbnail'),
+            'requested_by': next_track.get('requested_by'),
+            'dedication': next_track.get('dedication'),
         }
         self.redis.set_radio_state(state)
         self._prepare_audio_background(next_track['video_id'])

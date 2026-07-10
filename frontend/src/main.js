@@ -456,6 +456,28 @@ function updateUI(state) {
     elHeroBg.style.background = `linear-gradient(180deg, rgba(0,0,0,0.3), var(--bg-primary)), url(${thumb}) center/cover`;
   }
 
+  // Dedication / request attribution chip
+  const chip = $('dedication-chip');
+  if (chip) {
+    if (meta.dedication && meta.requested_by) {
+      chip.textContent = `💬 "${meta.dedication}" — ${meta.requested_by}`;
+      chip.classList.remove('hidden');
+    } else if (meta.requested_by) {
+      chip.textContent = `Request dari ${meta.requested_by}`;
+      chip.classList.remove('hidden');
+    } else {
+      chip.classList.add('hidden');
+    }
+  }
+
+  // Mood badge
+  const mood = state.mood || radioState?.mood;
+  const moodEl = $('mood-badge');
+  if (moodEl && mood) {
+    moodEl.textContent = `${state.mood_emoji || radioState?.mood_emoji || ''} ${mood}`.trim();
+    moodEl.classList.remove('hidden');
+  }
+
   // Media Session API — lock screen / background playback
   setupMediaSession(title, artist, thumb);
 
@@ -605,10 +627,38 @@ function closeLyricsOverlay() {
   lyricsActive = false;
   stopLyricsSync();
   releaseWakeLock();
+  exitTvMode();
 
   // Remove button active state
   const btn = $('btn-lyrics');
   if (btn) btn.classList.remove('active');
+}
+
+// ── TV / Karaoke Mode ───────────────────────────────────────
+
+let tvClockInterval = null;
+
+function updateTvClock() {
+  const el = $('tv-clock');
+  if (el) el.textContent = new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
+}
+
+function enterTvMode() {
+  openLyricsOverlay();
+  $('lyrics-overlay')?.classList.add('tv-mode');
+  $('tv-clock')?.classList.remove('hidden');
+  updateTvClock();
+  tvClockInterval = setInterval(updateTvClock, 15000);
+  document.documentElement.requestFullscreen?.().catch(() => {});
+}
+
+function exitTvMode() {
+  const overlay = $('lyrics-overlay');
+  if (!overlay || !overlay.classList.contains('tv-mode')) return;
+  overlay.classList.remove('tv-mode');
+  $('tv-clock')?.classList.add('hidden');
+  if (tvClockInterval) { clearInterval(tvClockInterval); tvClockInterval = null; }
+  if (document.fullscreenElement) document.exitFullscreen?.().catch(() => {});
 }
 
 async function requestWakeLock() {
@@ -717,8 +767,63 @@ async function handleWSEvent(event, data) {
       // Another device confirmed playback started — hide overlay if still showing
       if (!maintenanceActive) fadeOutOverlay();
       break;
+    case 'REACTION':
+      if (data?.emoji) spawnReaction(data.emoji);
+      break;
   }
 }
+
+// ── Reactions ──────────────────────────────────────────────
+
+const REDUCED_MOTION = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+function sendReaction(emoji) {
+  if (ws && ws.readyState === WebSocket.OPEN) {
+    ws.send(JSON.stringify({ type: 'REACTION', emoji }));
+  }
+}
+
+function spawnReaction(emoji) {
+  if (REDUCED_MOTION) return;
+  const layer = $('reaction-layer');
+  if (!layer) return;
+  const el = document.createElement('span');
+  el.className = 'reaction-float';
+  el.textContent = emoji;
+  el.style.left = `${10 + Math.random() * 80}%`;
+  el.style.setProperty('--drift', `${(Math.random() - 0.5) * 80}px`);
+  layer.appendChild(el);
+  el.addEventListener('animationend', () => el.remove());
+}
+
+document.querySelectorAll('.reaction-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    sendReaction(btn.dataset.emoji);
+    // Pop feedback on the tapped option
+    btn.classList.remove('pop');
+    void btn.offsetWidth;
+    btn.classList.add('pop');
+  });
+});
+
+function toggleReactionFab(open) {
+  const fab = $('reaction-fab');
+  const main = $('reaction-fab-main');
+  if (!fab) return;
+  const willOpen = open !== undefined ? open : !fab.classList.contains('open');
+  fab.classList.toggle('open', willOpen);
+  if (main) main.setAttribute('aria-expanded', String(willOpen));
+}
+
+$('reaction-fab-main')?.addEventListener('click', (e) => {
+  e.stopPropagation();
+  toggleReactionFab();
+});
+
+// Close the dial when tapping anywhere else
+document.addEventListener('click', (e) => {
+  if (!e.target.closest('#reaction-fab')) toggleReactionFab(false);
+});
 
 // ── Tab Navigation ─────────────────────────────────────────
 
@@ -757,7 +862,7 @@ function renderQueue(queue) {
       </div>
       <div class="queue-item-info">
         <div class="queue-item-title">${escapeHtml(item.title || 'Unknown')}</div>
-        <div class="queue-item-artist">${escapeHtml(item.artist || 'Unknown')}</div>
+        <div class="queue-item-artist">${escapeHtml(item.artist || 'Unknown')}${item.source === 'user' && item.added_by ? ` · oleh ${escapeHtml(item.added_by)}` : ''}</div>
       </div>
       ${isAdmin ? `<button class="queue-item-remove" data-index="${i}" title="Remove">✕</button>` : ''}
     </div>
@@ -825,55 +930,92 @@ function renderSearchResults(results) {
   `).join('');
 
   elSearchResults.querySelectorAll('.search-result-item').forEach(el => {
-    el.addEventListener('click', async () => {
+    el.addEventListener('click', () => {
       if (el.classList.contains('is-adding')) return;
-      const videoId = el.dataset.videoId;
-      const titleEl = el.querySelector('.search-result-title');
-      const artistEl = el.querySelector('.search-result-artist');
-      const title = titleEl.textContent;
-      const artist = artistEl.textContent;
-      const thumb = el.dataset.thumb;
-      el.classList.add('is-adding');
-      try {
-        const headers = { 'Content-Type': 'application/json' };
-        if (adminToken) headers['Authorization'] = `Bearer ${adminToken}`;
-        const res = await fetch(`${API_BASE}/queue`, {
-          method: 'POST',
-          headers,
-          body: JSON.stringify({ video_id: videoId, title, artist, thumbnail: thumb }),
-        });
-        if (!res.ok) {
-          let detail = '';
-          try {
-            const data = await res.json();
-            detail = data.detail || data.message || '';
-          } catch {}
-          if (res.status === 429) {
-            throw new Error(detail || 'Kebanyakan request. Tunggu sebentar sebelum add lagu lagi.');
-          }
-          throw new Error(detail || 'Gagal add lagu ke queue.');
-        }
-
-        titleEl.classList.remove('search-added');
-        void titleEl.offsetWidth;
-        titleEl.classList.add('search-added');
-        titleEl.textContent = '✓ Added!';
-        artistEl.textContent = 'Added to queue';
-        loadQueue();
-        setTimeout(() => {
-          titleEl.classList.remove('search-added');
-          titleEl.textContent = title;
-          artistEl.textContent = artist;
-          el.classList.remove('is-adding');
-        }, 1200);
-      } catch (e) {
-        console.error('Failed to add to queue:', e);
-        showSearchError(e.message || 'Gagal add lagu. Coba lagi sebentar.');
-        el.classList.remove('is-adding');
-      }
+      openRequestModal(el);
     });
   });
 }
+
+// ── Request flow (nickname + optional dedication) ──────────
+
+let pendingRequestEl = null;
+
+function getNickname() { return localStorage.getItem('nickname') || ''; }
+function setNickname(name) { localStorage.setItem('nickname', name); }
+
+function openRequestModal(el) {
+  pendingRequestEl = el;
+  const title = el.querySelector('.search-result-title').textContent;
+  const artist = el.querySelector('.search-result-artist').textContent;
+  $('request-track-label').textContent = `${title} — ${artist}`;
+  $('request-nickname').value = getNickname();
+  $('request-message').value = '';
+  $('request-modal').classList.add('active');
+  ($('request-nickname').value ? $('request-message') : $('request-nickname')).focus();
+}
+
+function closeRequestModal() {
+  $('request-modal').classList.remove('active');
+  pendingRequestEl = null;
+}
+
+async function submitRequest() {
+  const el = pendingRequestEl;
+  if (!el) return;
+  const videoId = el.dataset.videoId;
+  const titleEl = el.querySelector('.search-result-title');
+  const artistEl = el.querySelector('.search-result-artist');
+  const title = titleEl.textContent;
+  const artist = artistEl.textContent;
+  const nickname = $('request-nickname').value.trim();
+  const message = $('request-message').value.trim();
+  if (nickname) setNickname(nickname);
+
+  closeRequestModal();
+  el.classList.add('is-adding');
+  try {
+    const headers = { 'Content-Type': 'application/json' };
+    if (adminToken) headers['Authorization'] = `Bearer ${adminToken}`;
+    const res = await fetch(`${API_BASE}/queue`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ video_id: videoId, title, artist, nickname, message }),
+    });
+    if (!res.ok) {
+      let detail = '';
+      try {
+        const data = await res.json();
+        detail = data.detail || data.message || '';
+      } catch {}
+      if (res.status === 429) {
+        throw new Error(detail || 'Kebanyakan request. Tunggu sebentar sebelum add lagu lagi.');
+      }
+      throw new Error(detail || 'Gagal add lagu ke queue.');
+    }
+
+    titleEl.classList.remove('search-added');
+    void titleEl.offsetWidth;
+    titleEl.classList.add('search-added');
+    titleEl.textContent = '✓ Added!';
+    artistEl.textContent = 'Added to queue';
+    loadQueue();
+    setTimeout(() => {
+      titleEl.classList.remove('search-added');
+      titleEl.textContent = title;
+      artistEl.textContent = artist;
+      el.classList.remove('is-adding');
+    }, 1200);
+  } catch (e) {
+    console.error('Failed to add to queue:', e);
+    showSearchError(e.message || 'Gagal add lagu. Coba lagi sebentar.');
+    el.classList.remove('is-adding');
+  }
+}
+
+$('btn-send-request')?.addEventListener('click', submitRequest);
+$('request-modal-close')?.addEventListener('click', closeRequestModal);
+$('request-message')?.addEventListener('keydown', (e) => { if (e.key === 'Enter') submitRequest(); });
 
 elSearchInput.addEventListener('input', (e) => {
   const query = e.target.value.trim();
@@ -891,17 +1033,43 @@ elSearchInput.addEventListener('input', (e) => {
   searchTimeout = setTimeout(() => doSearch(query), 3000);
 });
 
-// ── History ────────────────────────────────────────────────
+// ── History (public) ───────────────────────────────────────
 
 async function loadHistory() {
+  loadTopTracks();
   try {
-    const headers = {};
-    if (adminToken) headers['Authorization'] = `Bearer ${adminToken}`;
-    const res = await fetch(`${API_BASE}/admin/history?limit=10`, { headers });
-    if (!res.ok) { elHistoryList.innerHTML = '<div class="empty-state">History requires admin login</div>'; return; }
+    const res = await fetch(`${API_BASE}/radio/history?limit=20`);
+    if (!res.ok) { elHistoryList.innerHTML = '<div class="empty-state">Failed to load history</div>'; return; }
     const data = await res.json();
     renderHistory(data.history || []);
   } catch { elHistoryList.innerHTML = '<div class="empty-state">Failed to load history</div>'; }
+}
+
+async function loadTopTracks() {
+  const container = $('top-tracks');
+  if (!container) return;
+  try {
+    const res = await fetch(`${API_BASE}/radio/top?days=7&limit=5`);
+    if (!res.ok) { container.innerHTML = ''; return; }
+    const data = await res.json();
+    const top = data.top || [];
+    if (!top.length) { container.innerHTML = ''; return; }
+    container.innerHTML = `
+      <div class="top-tracks-title">Top minggu ini</div>
+      ${top.map((t, i) => `
+        <div class="top-track-item">
+          <div class="top-track-rank">${i + 1}</div>
+          <div class="top-track-thumb">${t.thumbnail_url ? `<img src="${t.thumbnail_url}" alt="" loading="lazy">` : ''}</div>
+          <div class="top-track-info">
+            <div class="top-track-name">${escapeHtml(t.title || t.video_id)}</div>
+            <div class="top-track-artist">${escapeHtml(t.artist || '')}</div>
+          </div>
+          <div class="top-track-count">${t.play_count}×</div>
+        </div>
+      `).join('')}
+      <div class="top-tracks-title" style="margin-top: 18px;">Baru diputar</div>
+    `;
+  } catch { container.innerHTML = ''; }
 }
 
 function renderHistory(items) {
@@ -953,7 +1121,6 @@ function showAdminUI() {
   elAdminBar.classList.remove('hidden');
   elQueueAdminActions.classList.remove('hidden');
   $('tab-btn-stats').classList.remove('hidden');
-  $('tab-btn-history').classList.remove('hidden');
   // Show disable button on maintenance overlay if it's visible
   if (!$('maintenance-overlay').classList.contains('hidden')) {
     $('maintenance-btn-disable').classList.remove('hidden');
@@ -970,7 +1137,6 @@ function adminLogout() {
   elAdminBar.classList.add('hidden');
   elQueueAdminActions.classList.add('hidden');
   $('tab-btn-stats').classList.add('hidden');
-  $('tab-btn-history').classList.add('hidden');
   // Switch away from stats/history if active
   if (document.querySelector('[data-tab="stats"].active') || document.querySelector('[data-tab="history"].active')) {
     document.querySelector('[data-tab="queue"]').click();
@@ -1207,6 +1373,55 @@ $('settings-about').addEventListener('click', () => {
   alert('📻 Radiotify — Synchronized Web Radio\n\nReal-time synchronized radio (Audio Stream mode).\nAll listeners hear the same playback position.');
 });
 updatePlaybackModeLabel();
+
+// ── Nickname setting ────────────────────────────────────────
+
+function updateNicknameLabel() {
+  const label = $('settings-nickname-label');
+  if (label) label.textContent = getNickname() ? `Nickname: ${getNickname()}` : 'Set Nickname';
+}
+
+$('settings-nickname')?.addEventListener('click', () => {
+  $('settings-menu').classList.add('hidden');
+  const name = prompt('Nickname kamu (dipakai saat request lagu):', getNickname());
+  if (name !== null) {
+    setNickname(name.trim().slice(0, 24));
+    updateNicknameLabel();
+  }
+});
+updateNicknameLabel();
+
+// ── TV Mode setting ─────────────────────────────────────────
+
+$('settings-tv')?.addEventListener('click', () => {
+  $('settings-menu').classList.add('hidden');
+  enterTvMode();
+});
+
+// ── Share ───────────────────────────────────────────────────
+
+function showToast(text) {
+  const toast = $('toast');
+  if (!toast) return;
+  toast.textContent = text;
+  toast.classList.remove('hidden');
+  clearTimeout(showToast._t);
+  showToast._t = setTimeout(() => toast.classList.add('hidden'), 2400);
+}
+
+$('btn-share')?.addEventListener('click', async () => {
+  const url = `${location.origin}/share`;
+  const meta = radioState?.meta || radioState?.current_track_meta || {};
+  const text = meta.title ? `Lagi dengerin ${meta.title} — ${meta.artist} di Radiotify` : 'Dengar bareng di Radiotify';
+  if (navigator.share) {
+    try { await navigator.share({ title: 'Radiotify', text, url }); } catch {}
+  } else {
+    try {
+      await navigator.clipboard.writeText(url);
+      showToast('Link disalin!');
+    } catch { showToast('Gagal menyalin link'); }
+  }
+});
 
 // ── Vote Skip ───────────────────────────────────────────────
 

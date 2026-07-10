@@ -57,11 +57,14 @@ async def add_to_queue(req: QueueAddRequest, request: Request):
         from .admin import verify_token
         is_admin = verify_token(auth[7:])
 
-    # Rate limit per user (using IP as user_id for now)
-    # TODO: implement proper user identification
-    user_id = "default"
+    # Rate limit per client IP
+    user_id = request.client.host if request.client else 'unknown'
     if not is_admin and not redis.check_user_queue_limit(user_id):
         raise HTTPException(429, "Wait 3 minutes before adding another song")
+
+    # Display identity + optional dedication (both client-supplied, sanitized)
+    nickname = ' '.join((req.nickname or '').split()).strip()[:24] or 'Anon'
+    message = ' '.join((req.message or '').split()).strip()[:100] or None
 
     # Resolve track metadata if not provided
     title = req.title
@@ -82,7 +85,8 @@ async def add_to_queue(req: QueueAddRequest, request: Request):
         title=title,
         artist=artist,
         thumbnail=thumbnail or f"https://img.youtube.com/vi/{req.video_id}/maxresdefault.jpg",
-        added_by=user_id,
+        added_by=nickname,
+        message=message,
         source='user',
     )
 
