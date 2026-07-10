@@ -102,6 +102,54 @@ class YouTubeMusicService:
             logger.error(f"get_track_info error for {video_id}: {e}")
             return cached  # Return stale cache if available
 
+    # ── Lyrics ──────────────────────────────────────────────
+
+    def get_lyrics(self, video_id: str) -> Optional[List[Dict[str, Any]]]:
+        """Get synchronized lyrics for a track via ytmusicapi.
+        
+        Returns list of {time_ms, text} or None if not available.
+        """
+        try:
+            # First get the watch playlist to obtain the lyrics browseId
+            watch = self.ytmusic.get_watch_playlist(videoId=video_id)
+            browse_id = (watch or {}).get('lyrics')
+            if not browse_id:
+                logger.info(f"No lyrics browseId for {video_id}")
+                return None
+
+            # Fetch synced lyrics using the browseId
+            lyrics_data = self.ytmusic.get_lyrics(browse_id, timestamps=True)
+            if not lyrics_data:
+                logger.info(f"No lyrics found for {video_id}")
+                return None
+
+            # Parse synced lyrics — ytmusicapi returns LyricLine objects with start_time/text
+            lyrics_lines = lyrics_data.get('lyrics')
+            if not lyrics_lines:
+                logger.info(f"No lyrics lines for {video_id}")
+                return None
+
+            synced = []
+            for line in lyrics_lines:
+                start_time = getattr(line, 'start_time', None) if not isinstance(line, dict) else line.get('start_time')
+                text = getattr(line, 'text', '') if not isinstance(line, dict) else line.get('text', '')
+                if start_time is not None and text and text.strip():
+                    synced.append({
+                        'time_ms': int(start_time),
+                        'text': text.strip(),
+                    })
+
+            if synced:
+                logger.info(f"Found {len(synced)} synced lyrics lines for {video_id}")
+                return synced
+
+            logger.info(f"No synced lyrics available for {video_id}")
+            return None
+
+        except Exception as e:
+            logger.error(f"get_lyrics error for {video_id}: {e}")
+            return None
+
     # ── Recommendations (Up Next) ───────────────────────────
 
     def get_up_next(self, video_id: str, limit: int = 10) -> List[str]:
