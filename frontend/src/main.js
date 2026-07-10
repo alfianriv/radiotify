@@ -787,11 +787,25 @@ function spawnReaction(emoji) {
   if (REDUCED_MOTION) return;
   const layer = $('reaction-layer');
   if (!layer) return;
+  // YouTube-live style: rise from the reaction button with a sinusoidal
+  // sway + tilt. Outer span rises/fades, inner span wiggles.
   const el = document.createElement('span');
   el.className = 'reaction-float';
-  el.textContent = emoji;
-  el.style.left = `${10 + Math.random() * 80}%`;
-  el.style.setProperty('--drift', `${(Math.random() - 0.5) * 80}px`);
+  const inner = document.createElement('span');
+  inner.className = 'reaction-float-inner';
+  inner.textContent = emoji;
+  el.appendChild(inner);
+
+  const dur = 2.2 + Math.random() * 1.4;           // rise duration (s)
+  el.style.setProperty('--rise-dur', `${dur.toFixed(2)}s`);
+  el.style.setProperty('--rise', `-${48 + Math.random() * 18}vh`);
+  el.style.setProperty('--size', `${22 + Math.random() * 18}px`);
+  el.style.right = `${18 + Math.random() * 56}px`;
+  inner.style.setProperty('--sway', `${10 + Math.random() * 18}px`);
+  inner.style.setProperty('--tilt', `${8 + Math.random() * 10}deg`);
+  inner.style.setProperty('--sway-dur', `${(0.8 + Math.random() * 0.6).toFixed(2)}s`);
+  if (Math.random() < 0.5) inner.style.animationDirection = 'alternate-reverse';
+
   layer.appendChild(el);
   el.addEventListener('animationend', () => el.remove());
 }
@@ -1409,18 +1423,37 @@ function showToast(text) {
   showToast._t = setTimeout(() => toast.classList.add('hidden'), 2400);
 }
 
+async function copyToClipboard(text) {
+  // Clipboard API needs a secure context (HTTPS/localhost)
+  if (navigator.clipboard?.writeText) {
+    try { await navigator.clipboard.writeText(text); return true; } catch {}
+  }
+  // Legacy fallback for plain-HTTP origins
+  const ta = document.createElement('textarea');
+  ta.value = text;
+  ta.setAttribute('readonly', '');
+  ta.style.position = 'fixed';
+  ta.style.opacity = '0';
+  document.body.appendChild(ta);
+  ta.focus();
+  ta.select();
+  let ok = false;
+  try { ok = document.execCommand('copy'); } catch {}
+  ta.remove();
+  return ok;
+}
+
 $('btn-share')?.addEventListener('click', async () => {
   const url = `${location.origin}/share`;
   const meta = radioState?.meta || radioState?.current_track_meta || {};
   const text = meta.title ? `Lagi dengerin ${meta.title} — ${meta.artist} di Radiotify` : 'Dengar bareng di Radiotify';
   if (navigator.share) {
-    try { await navigator.share({ title: 'Radiotify', text, url }); } catch {}
-  } else {
-    try {
-      await navigator.clipboard.writeText(url);
-      showToast('Link disalin!');
-    } catch { showToast('Gagal menyalin link'); }
+    try { await navigator.share({ title: 'Radiotify', text, url }); return; } catch (e) {
+      if (e?.name === 'AbortError') return; // user closed the share sheet
+    }
   }
+  const ok = await copyToClipboard(url);
+  showToast(ok ? 'Link disalin!' : 'Gagal menyalin link');
 });
 
 // ── Vote Skip ───────────────────────────────────────────────

@@ -842,16 +842,29 @@ body {
   pointer-events: none; z-index: 90;
   overflow: hidden;
 }
+/* Outer: rises from the reaction FAB and fades near the top of travel */
 .reaction-float {
-  position: absolute; bottom: 12vh;
-  font-size: 30px;
-  animation: reactionFloat 2s var(--ease-out) both;
+  position: absolute; bottom: 84px;
+  font-size: var(--size, 30px);
+  animation: reactionRise var(--rise-dur, 2.6s) cubic-bezier(0.2, 0.4, 0.6, 1) both;
   will-change: transform, opacity;
 }
-@keyframes reactionFloat {
-  0%   { opacity: 0; transform: translate(0, 20px) scale(0.6); }
-  12%  { opacity: 1; transform: translate(0, 0) scale(1.1); }
-  100% { opacity: 0; transform: translate(var(--drift, 0px), -46vh) scale(1); }
+@keyframes reactionRise {
+  0%   { opacity: 0; transform: translateY(6px) scale(0.4); }
+  8%   { opacity: 1; transform: translateY(0) scale(1.06); }
+  12%  { transform: translateY(calc(var(--rise, -52vh) * 0.06)) scale(1); }
+  70%  { opacity: 1; }
+  100% { opacity: 0; transform: translateY(var(--rise, -52vh)) scale(0.9); }
+}
+/* Inner: sinusoidal sway + tilt, out of phase with the rise */
+.reaction-float-inner {
+  display: inline-block;
+  animation: reactionSway var(--sway-dur, 1s) ease-in-out infinite alternate;
+  will-change: transform;
+}
+@keyframes reactionSway {
+  from { transform: translateX(calc(var(--sway, 14px) * -1)) rotate(calc(var(--tilt, 12deg) * -1)); }
+  to   { transform: translateX(var(--sway, 14px)) rotate(var(--tilt, 12deg)); }
 }
 
 /* ── Top tracks (history tab) ────────────────────────────── */
