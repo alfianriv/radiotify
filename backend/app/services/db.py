@@ -125,15 +125,6 @@ class Database:
                 "INSERT INTO play_history (video_id, played_at, source) VALUES (?, ?, ?)",
                 (video_id, time.time(), source)
             )
-            # Keep only the 10 most recent entries
-            conn.execute("""
-                DELETE FROM play_history
-                WHERE id NOT IN (
-                    SELECT id FROM play_history
-                    ORDER BY played_at DESC
-                    LIMIT 10
-                )
-            """)
 
     def get_recently_played(self, limit: int = 50) -> List[str]:
         """Return video IDs of recently played tracks (most recent first)."""
@@ -153,6 +144,22 @@ class Database:
                 ORDER BY ph.played_at DESC LIMIT 1
             """).fetchone()
             return dict(row) if row else None
+
+    def get_top_tracks(self, days: int = 7, limit: int = 10) -> List[Dict[str, Any]]:
+        """Most-played tracks within the last `days`, with play counts."""
+        since = time.time() - days * 86400
+        with self._conn() as conn:
+            rows = conn.execute("""
+                SELECT t.video_id, t.title, t.artist, t.thumbnail_url,
+                       COUNT(*) as play_count
+                FROM play_history ph
+                JOIN tracks t ON t.video_id = ph.video_id
+                WHERE ph.played_at > ?
+                GROUP BY ph.video_id
+                ORDER BY play_count DESC, MAX(ph.played_at) DESC
+                LIMIT ?
+            """, (since, limit)).fetchall()
+            return [dict(r) for r in rows]
 
     # ── Admin Actions Log ───────────────────────────────────
 
